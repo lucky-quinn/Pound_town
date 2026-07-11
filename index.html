@@ -415,7 +415,7 @@ body{
   display:block;font-size:11px;font-weight:700;letter-spacing:1px;
   text-transform:uppercase;opacity:.6;margin-bottom:6px;
 }
-.form-row input[type=text], .form-row input[type=tel], .form-row textarea{
+.form-row input[type=text], .form-row input[type=tel], .form-row input[type=time], .form-row textarea{
   width:100%;
   padding:11px 12px;
   border-radius:10px;
@@ -548,6 +548,23 @@ body{
             <label for="typeDelivery">🛵 Delivery</label>
           </div>
         </div>
+      </div>
+      <div class="form-row">
+        <label>When would you like it?</label>
+        <div class="order-type-row">
+          <div class="order-type-opt">
+            <input type="radio" name="whenType" id="whenAsap" value="ASAP" checked>
+            <label for="whenAsap">⏱ As soon as possible</label>
+          </div>
+          <div class="order-type-opt">
+            <input type="radio" name="whenType" id="whenSchedule" value="Schedule">
+            <label for="whenSchedule">📅 Schedule a time</label>
+          </div>
+        </div>
+      </div>
+      <div class="form-row" id="timeRow" style="display:none;">
+        <label for="custTime">Preferred time</label>
+        <input type="time" id="custTime">
       </div>
       <div class="form-row" id="addressRow" style="display:none;">
         <label for="custAddress">Delivery address</label>
@@ -862,31 +879,47 @@ document.querySelectorAll('input[name="orderType"]').forEach(r => {
   });
 });
 
+// ====== WHEN TOGGLE (scheduled time) ======
+const timeRow = document.getElementById('timeRow');
+document.querySelectorAll('input[name="whenType"]').forEach(r => {
+  r.addEventListener('change', () => {
+    timeRow.style.display = document.getElementById('whenSchedule').checked ? 'block' : 'none';
+  });
+});
+
 // ====== SEND TO WHATSAPP ======
 document.getElementById('sendBtn').addEventListener('click', () => {
   const name = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
   const orderType = document.querySelector('input[name="orderType"]:checked').value;
   const address = document.getElementById('custAddress').value.trim();
+  const whenType = document.querySelector('input[name="whenType"]:checked').value;
+  const time = document.getElementById('custTime').value;
   const errorEl = document.getElementById('formError');
 
   const deliveryNeedsAddress = orderType === 'Delivery' && address.length === 0;
+  const scheduleNeedsTime = whenType === 'Schedule' && time.length === 0;
 
-  if (!name || !phone || cart.length === 0 || deliveryNeedsAddress) {
+  if (!name || !phone || cart.length === 0 || deliveryNeedsAddress || scheduleNeedsTime) {
     errorEl.textContent = cart.length === 0
       ? 'Your order is empty. Please add at least one item.'
       : deliveryNeedsAddress
         ? 'Please add a delivery address.'
-        : 'Please fill in your name and phone number.';
+        : scheduleNeedsTime
+          ? 'Please pick a preferred time.'
+          : 'Please fill in your name and phone number.';
     errorEl.classList.add('show');
     return;
   }
   errorEl.classList.remove('show');
 
+  const timeText = whenType === 'Schedule' ? time : 'As soon as possible';
+
   let msg = `*Pound Town Burgers — New Order*\n`;
   msg += `Name: ${name}\n`;
   msg += `Phone: ${phone}\n`;
-  msg += `Order type: ${orderType}${orderType === 'Delivery' ? ` — ${address}` : ''}\n\n`;
+  msg += `Order type: ${orderType}${orderType === 'Delivery' ? ` — ${address}` : ''}\n`;
+  msg += `Time: ${timeText}\n\n`;
 
   cart.forEach((c, i) => {
     const lineTotal = c.unitPrice * c.qty;
