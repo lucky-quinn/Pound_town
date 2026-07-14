@@ -424,6 +424,29 @@ body{
   font-family:'Inter',sans-serif;
   font-size:14px;
 }
+.preorder-note{
+  font-size:12px;
+  opacity:.65;
+  margin-bottom:10px;
+  line-height:1.4;
+}
+.preorder-selects{
+  display:flex;
+  gap:10px;
+}
+.preorder-selects select{
+  flex:1;
+  padding:11px 12px;
+  border-radius:10px;
+  border:1.5px solid var(--line-light);
+  background:var(--paper-2);
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  color:var(--ink);
+}
+.preorder-selects select:disabled{
+  opacity:.5;
+}
 .form-row input:focus, .form-row textarea:focus{outline:2px solid var(--mustard);outline-offset:1px;}
 
 .order-type-row{display:flex;gap:10px;}
@@ -550,21 +573,16 @@ body{
         </div>
       </div>
       <div class="form-row">
-        <label>When would you like it?</label>
-        <div class="order-type-row">
-          <div class="order-type-opt">
-            <input type="radio" name="whenType" id="whenAsap" value="ASAP" checked>
-            <label for="whenAsap">⏱ As soon as possible</label>
-          </div>
-          <div class="order-type-opt">
-            <input type="radio" name="whenType" id="whenSchedule" value="Schedule">
-            <label for="whenSchedule">📅 Schedule a time</label>
-          </div>
+        <label>Pre-order for</label>
+        <div class="preorder-note">We're currently taking pre-orders for Fri 8 PM–12 AM and Sat–Sun 3 PM–10 PM.</div>
+        <div class="preorder-selects">
+          <select id="custDate">
+            <option value="">Choose a date</option>
+          </select>
+          <select id="custSlot" disabled>
+            <option value="">Choose a time</option>
+          </select>
         </div>
-      </div>
-      <div class="form-row" id="timeRow" style="display:none;">
-        <label for="custTime">Preferred time</label>
-        <input type="time" id="custTime">
       </div>
       <div class="form-row" id="addressRow" style="display:none;">
         <label for="custAddress">Delivery address</label>
@@ -879,12 +897,85 @@ document.querySelectorAll('input[name="orderType"]').forEach(r => {
   });
 });
 
-// ====== WHEN TOGGLE (scheduled time) ======
-const timeRow = document.getElementById('timeRow');
-document.querySelectorAll('input[name="whenType"]').forEach(r => {
-  r.addEventListener('change', () => {
-    timeRow.style.display = document.getElementById('whenSchedule').checked ? 'block' : 'none';
+// ====== PRE-ORDER DATE & TIME SLOTS ======
+// Available windows: Friday 8 PM - 12 AM, Saturday & Sunday 3 PM - 10 PM
+const DAY_WINDOWS = {
+  5: { slots: generateSlots(20, 0, 23, 30) },   // Friday
+  6: { slots: generateSlots(15, 0, 21, 30) },   // Saturday
+  0: { slots: generateSlots(15, 0, 21, 30) }    // Sunday
+};
+
+function generateSlots(startH, startM, endH, endM) {
+  const out = [];
+  let h = startH, m = startM;
+  while (h < endH || (h === endH && m <= endM)) {
+    out.push({ h, m });
+    m += 30;
+    if (m >= 60) { m = 0; h += 1; }
+  }
+  return out;
+}
+
+function pad2(n) { return n.toString().padStart(2, '0'); }
+
+function dateValue(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+
+function formatTime12(h, m) {
+  const period = h >= 12 ? 'PM' : 'AM';
+  let hh = h % 12; if (hh === 0) hh = 12;
+  return `${hh}:${pad2(m)} ${period}`;
+}
+
+function lastSlotEndDate(baseDate, dow) {
+  const window = DAY_WINDOWS[dow];
+  const last = window.slots[window.slots.length - 1];
+  const end = new Date(baseDate);
+  end.setHours(last.h, last.m, 0, 0);
+  return end;
+}
+
+function getUpcomingDates(daysAhead = 28, maxCount = 9) {
+  const results = [];
+  const now = new Date();
+  for (let i = 0; i < daysAhead && results.length < maxCount; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    const dow = d.getDay();
+    if (DAY_WINDOWS[dow]) {
+      if (i === 0 && now > lastSlotEndDate(d, dow)) continue;
+      results.push(d);
+    }
+  }
+  return results;
+}
+
+const custDateEl = document.getElementById('custDate');
+const custSlotEl = document.getElementById('custSlot');
+
+getUpcomingDates().forEach(d => {
+  const dow = d.getDay();
+  const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const opt = document.createElement('option');
+  opt.value = dateValue(d);
+  opt.dataset.dow = dow;
+  opt.textContent = label;
+  custDateEl.appendChild(opt);
+});
+
+custDateEl.addEventListener('change', () => {
+  custSlotEl.innerHTML = '<option value="">Choose a time</option>';
+  const selected = custDateEl.selectedOptions[0];
+  if (!selected || !selected.value) {
+    custSlotEl.disabled = true;
+    return;
+  }
+  const dow = Number(selected.dataset.dow);
+  DAY_WINDOWS[dow].slots.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = `${pad2(s.h)}:${pad2(s.m)}`;
+    opt.textContent = formatTime12(s.h, s.m);
+    custSlotEl.appendChild(opt);
   });
+  custSlotEl.disabled = false;
 });
 
 // ====== SEND TO WHATSAPP ======
@@ -893,33 +984,34 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   const phone = document.getElementById('custPhone').value.trim();
   const orderType = document.querySelector('input[name="orderType"]:checked').value;
   const address = document.getElementById('custAddress').value.trim();
-  const whenType = document.querySelector('input[name="whenType"]:checked').value;
-  const time = document.getElementById('custTime').value;
+  const dateOpt = custDateEl.selectedOptions[0];
+  const slotOpt = custSlotEl.selectedOptions[0];
   const errorEl = document.getElementById('formError');
 
   const deliveryNeedsAddress = orderType === 'Delivery' && address.length === 0;
-  const scheduleNeedsTime = whenType === 'Schedule' && time.length === 0;
+  const needsDate = !dateOpt || !dateOpt.value;
+  const needsSlot = !slotOpt || !slotOpt.value;
 
-  if (!name || !phone || cart.length === 0 || deliveryNeedsAddress || scheduleNeedsTime) {
+  if (!name || !phone || cart.length === 0 || deliveryNeedsAddress || needsDate || needsSlot) {
     errorEl.textContent = cart.length === 0
       ? 'Your order is empty. Please add at least one item.'
       : deliveryNeedsAddress
         ? 'Please add a delivery address.'
-        : scheduleNeedsTime
-          ? 'Please pick a preferred time.'
+        : (needsDate || needsSlot)
+          ? 'Please choose a pre-order date and time.'
           : 'Please fill in your name and phone number.';
     errorEl.classList.add('show');
     return;
   }
   errorEl.classList.remove('show');
 
-  const timeText = whenType === 'Schedule' ? time : 'As soon as possible';
+  const timeText = `${dateOpt.textContent}, ${slotOpt.textContent}`;
 
   let msg = `*Pound Town Burgers — New Order*\n`;
   msg += `Name: ${name}\n`;
   msg += `Phone: ${phone}\n`;
   msg += `Order type: ${orderType}${orderType === 'Delivery' ? ` — ${address}` : ''}\n`;
-  msg += `Time: ${timeText}\n\n`;
+  msg += `Pre-order for: ${timeText}\n\n`;
 
   cart.forEach((c, i) => {
     const lineTotal = c.unitPrice * c.qty;
