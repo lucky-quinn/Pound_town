@@ -198,6 +198,84 @@ body{
   width:18px;height:18px;accent-color:var(--pickle);cursor:pointer;flex-shrink:0;
 }
 .addon-row label{font-size:13px;font-weight:600;cursor:pointer;flex:1;}
+
+/* ---------- Closed-booking popup ---------- */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(42,15,15,0.62);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  z-index:999;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s ease;
+}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-box{
+  background:var(--paper);
+  border:1px solid var(--line-light);
+  border-radius:16px;
+  max-width:360px;
+  width:100%;
+  padding:26px 22px 22px;
+  box-shadow:0 14px 40px rgba(42,15,15,0.35);
+  position:relative;
+  transform:translateY(10px);
+  transition:transform .2s ease;
+}
+.modal-overlay.show .modal-box{transform:translateY(0);}
+.modal-stamp{
+  display:inline-block;
+  border:2px solid var(--ember);
+  color:var(--ember);
+  font-family:'Space Mono',monospace;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1.5px;
+  padding:3px 8px;
+  border-radius:3px;
+  transform:rotate(-3deg);
+  text-transform:uppercase;
+  margin-bottom:12px;
+}
+.modal-title{
+  font-family:'Anton',sans-serif;
+  font-size:22px;
+  letter-spacing:.4px;
+  text-transform:uppercase;
+  color:var(--ink);
+  margin-bottom:10px;
+  line-height:1.15;
+}
+.modal-body{
+  font-size:14px;
+  line-height:1.55;
+  color:var(--ink);
+  opacity:.85;
+  margin-bottom:20px;
+}
+.modal-body strong{color:var(--ember-dark);}
+.modal-close-btn{
+  width:100%;
+  background:var(--ink);
+  color:var(--paper);
+  border:none;
+  border-radius:10px;
+  padding:12px 16px;
+  font-family:'Inter',sans-serif;
+  font-weight:700;
+  font-size:14px;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+.preorder-note.closed{
+  color:var(--ember-dark);
+  font-weight:700;
+}
 .addon-price{font-family:'Space Mono',monospace;font-size:13px;color:var(--pickle);font-weight:700;}
 
 .notes-input{
@@ -503,6 +581,15 @@ body{
 </head>
 <body>
 
+<div class="modal-overlay" id="bookingClosedModal">
+  <div class="modal-box">
+    <div class="modal-stamp">Booking closed</div>
+    <div class="modal-title">We're fully booked!</div>
+    <div class="modal-body">We're already booked out and have temporarily closed our booking. We'll resume taking pre-orders on <strong>5th September</strong>. Thanks for your patience - see you soon!</div>
+    <button class="modal-close-btn" id="bookingClosedClose">Got it</button>
+  </div>
+</div>
+
 <div class="header">
   <div class="brand-row">
     <div class="brand-name">Pound <span>Town</span> Burgers</div>
@@ -574,7 +661,7 @@ body{
       </div>
       <div class="form-row">
         <label>Pre-order for</label>
-        <div class="preorder-note">We're currently taking pre-orders for Fri 8 PM–12 AM and Sat–Sun 3 PM–10 PM.</div>
+        <div class="preorder-note closed" id="preorderNote">We're fully booked and have paused new pre-orders. Booking reopens 5th September; earliest available slots are shown below.</div>
         <div class="preorder-selects">
           <select id="custDate">
             <option value="">Choose a date</option>
@@ -897,6 +984,17 @@ document.querySelectorAll('input[name="orderType"]').forEach(r => {
   });
 });
 
+// ====== BOOKING CLOSED POPUP ======
+(function () {
+  const modal = document.getElementById('bookingClosedModal');
+  const closeBtn = document.getElementById('bookingClosedClose');
+  const show = () => modal.classList.add('show');
+  const hide = () => modal.classList.remove('show');
+  show();
+  closeBtn.addEventListener('click', hide);
+  modal.addEventListener('click', (e) => { if (e.target === modal) hide(); });
+})();
+
 // ====== PRE-ORDER DATE & TIME SLOTS ======
 // Available windows: Friday 8 PM - 12 AM, Saturday & Sunday 3 PM - 10 PM
 const DAY_WINDOWS = {
@@ -934,14 +1032,18 @@ function lastSlotEndDate(baseDate, dow) {
   return end;
 }
 
+// Booking is temporarily closed — pre-orders resume on this date.
+const BOOKING_RESUME_DATE = new Date(2026, 8, 5); // 5th September 2026
+
 function getUpcomingDates(daysAhead = 28, maxCount = 9) {
   const results = [];
   const now = new Date();
+  const startBase = now < BOOKING_RESUME_DATE ? BOOKING_RESUME_DATE : now;
   for (let i = 0; i < daysAhead && results.length < maxCount; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    const d = new Date(startBase.getFullYear(), startBase.getMonth(), startBase.getDate() + i);
     const dow = d.getDay();
     if (DAY_WINDOWS[dow]) {
-      if (i === 0 && now > lastSlotEndDate(d, dow)) continue;
+      if (i === 0 && startBase > lastSlotEndDate(d, dow)) continue;
       results.push(d);
     }
   }
