@@ -198,84 +198,6 @@ body{
   width:18px;height:18px;accent-color:var(--pickle);cursor:pointer;flex-shrink:0;
 }
 .addon-row label{font-size:13px;font-weight:600;cursor:pointer;flex:1;}
-
-/* ---------- Closed-booking popup ---------- */
-.modal-overlay{
-  position:fixed;
-  inset:0;
-  background:rgba(42,15,15,0.62);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:24px;
-  z-index:999;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .2s ease;
-}
-.modal-overlay.show{opacity:1;pointer-events:auto;}
-.modal-box{
-  background:var(--paper);
-  border:1px solid var(--line-light);
-  border-radius:16px;
-  max-width:360px;
-  width:100%;
-  padding:26px 22px 22px;
-  box-shadow:0 14px 40px rgba(42,15,15,0.35);
-  position:relative;
-  transform:translateY(10px);
-  transition:transform .2s ease;
-}
-.modal-overlay.show .modal-box{transform:translateY(0);}
-.modal-stamp{
-  display:inline-block;
-  border:2px solid var(--ember);
-  color:var(--ember);
-  font-family:'Space Mono',monospace;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:1.5px;
-  padding:3px 8px;
-  border-radius:3px;
-  transform:rotate(-3deg);
-  text-transform:uppercase;
-  margin-bottom:12px;
-}
-.modal-title{
-  font-family:'Anton',sans-serif;
-  font-size:22px;
-  letter-spacing:.4px;
-  text-transform:uppercase;
-  color:var(--ink);
-  margin-bottom:10px;
-  line-height:1.15;
-}
-.modal-body{
-  font-size:14px;
-  line-height:1.55;
-  color:var(--ink);
-  opacity:.85;
-  margin-bottom:20px;
-}
-.modal-body strong{color:var(--ember-dark);}
-.modal-close-btn{
-  width:100%;
-  background:var(--ink);
-  color:var(--paper);
-  border:none;
-  border-radius:10px;
-  padding:12px 16px;
-  font-family:'Inter',sans-serif;
-  font-weight:700;
-  font-size:14px;
-  letter-spacing:.3px;
-  text-transform:uppercase;
-  cursor:pointer;
-}
-.preorder-note.closed{
-  color:var(--ember-dark);
-  font-weight:700;
-}
 .addon-price{font-family:'Space Mono',monospace;font-size:13px;color:var(--pickle);font-weight:700;}
 
 .notes-input{
@@ -337,6 +259,16 @@ body{
 }
 .add-btn:hover{background:var(--ember-dark);}
 .add-btn.smashed{animation:smash .28s ease;}
+.add-btn:disabled{
+  background:var(--line-light);
+  color:var(--ink);
+  opacity:.55;
+  cursor:not-allowed;
+  max-width:none;
+  flex:none;
+  width:100%;
+}
+.add-btn:disabled:hover{background:var(--line-light);}
 @keyframes smash{
   0%{transform:scale(1);}
   40%{transform:scale(0.88);}
@@ -581,27 +513,18 @@ body{
 </head>
 <body>
 
-<div class="modal-overlay" id="bookingClosedModal">
-  <div class="modal-box">
-    <div class="modal-stamp">Booking closed</div>
-    <div class="modal-title">We're fully booked!</div>
-    <div class="modal-body">We're already booked out and have temporarily closed our booking. We'll resume taking pre-orders on <strong>5th September</strong>. Thanks for your patience - see you soon!</div>
-    <button class="modal-close-btn" id="bookingClosedClose">Got it</button>
-  </div>
-</div>
-
 <div class="header">
   <div class="brand-row">
     <div class="brand-name">Pound <span>Town</span> Burgers</div>
   </div>
-  <div class="tagline">The only pounding you'll brag about tomorrow.</div>
-  <div class="beef-note">*All our burgers use beef patties</div>
+  <div class="tagline">Nothing Beats a Good Pound</div>
+  <div class="beef-note">*All our burgers use Halal meat</div>
 </div>
 <div class="checker-strip"></div>
 
 <div class="section">
   <div class="section-title">Smash Burgers</div>
-  <div class="section-sub">Pick single or double patty. Add fries or a note if you like.</div>
+  <div class="section-sub">Pick single,double patty or The Pounder. Add fries or a note if you like.</div>
   <div id="burger-list"></div>
 </div>
 
@@ -609,6 +532,12 @@ body{
   <div class="section-title">Sides &amp; Dips</div>
   <div class="section-sub">Tap + to add, tap again to add more.</div>
   <div id="side-list"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Drinks</div>
+  <div class="section-sub">Tap + to add, tap again to add more.</div>
+  <div id="drink-list"></div>
 </div>
 
 <div class="footnote">Pound Town Burgers &middot; Computron Arcade, Kallattmukku, TVM &middot; @pound.town.burgers</div>
@@ -661,7 +590,6 @@ body{
       </div>
       <div class="form-row">
         <label>Pre-order for</label>
-        <div class="preorder-note closed" id="preorderNote">We're fully booked and have paused new pre-orders. Booking reopens 5th September; earliest available slots are shown below.</div>
         <div class="preorder-selects">
           <select id="custDate">
             <option value="">Choose a date</option>
@@ -692,16 +620,19 @@ const WHATSAPP_NUMBER = "917909115665";
 
 // ====== MENU DATA ======
 const BURGERS = [
-  { id:"signature_smash", name:"Signature Smash", single:269, double:329,
+  { id:"signature_smash", name:"Signature Smash", single:269, double:329, pounder:420,
     desc:"Smashed patties with our in-house signature sauce, lettuce, tomatoes, caramelized onions, jalapenos and cheddar cheese." },
-  { id:"sweet_seduction", name:"Sweet Seduction", single:249, double:309,
+  { id:"sweet_seduction", name:"Sweet Seduction", single:249, double:309, pounder:399,
     desc:"Smashed patties with our in-house sweet sauce, lettuce, tomatoes, caramelized onions, gherkins and cheddar cheese." },
-  { id:"hot_bothered", name:"Hot & Bothered", single:249, double:309,
+  { id:"hot_bothered", name:"Hot & Bothered", single:249, double:309, pounder:399,
     desc:"Smashed patties with our in-house hot sauce, lettuce, tomatoes, onions, jalapenos and cheddar cheese." },
-  { id:"classic_cheeseburger", name:"Classic Cheeseburger", single:199, double:null,
-    desc:"Juicy beef patty with our classic burger sauce, lettuce, tomatoes, onions and cheese." }
+  { id:"classic_cheeseburger", name:"Classic Cheeseburger", single:199, double:null, pounder:null,
+    desc:"Juicy beef patty with our classic burger sauce, lettuce, tomatoes, onions and cheese." },
+  { id:"secret_fried_chicken", name:"Super Secret Fried Chicken Burger 🤫", single:null, double:null, pounder:null,
+    desc:"Shh. A juicy fried chicken fillet, double-brined and crusted in a coating we'll never fully explain, tucked into a bun with a secret sauce that took us months to get right. A few of our own team don't even know what's in it. All we'll say is: worth the wait.",
+    comingSoon:true }
 ];
-const ADDON_FRIES_PRICE = 39;
+const ADDON_FRIES_PRICE = 59;
 
 const SIDES = [
   { id:"just_fries", name:"Fries", price:99 },
@@ -711,6 +642,11 @@ const SIDES = [
   { id:"bbq_dip", name:"BBQ Dip", price:39 }
 ];
 
+const DRINKS = [
+  { id:"diet_coke", name:"Diet Coke (300ml can)", price:40 },
+  { id:"sprite", name:"Sprite (300ml can)", price:40 }
+];
+
 // ====== STATE ======
 let cart = []; // { key, type:'burger'|'side', name, variant, addFries, notes, qty, unitPrice }
 
@@ -718,26 +654,52 @@ let cart = []; // { key, type:'burger'|'side', name, variant, addFries, notes, q
 const burgerListEl = document.getElementById("burger-list");
 BURGERS.forEach(b => {
   const hasDouble = b.double !== null;
+  const hasPounder = b.pounder != null;
   const card = document.createElement("div");
   card.className = "card";
+
+  if (b.comingSoon) {
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-name">${b.name}</div>
+      </div>
+      <div class="card-desc">${b.desc}</div>
+      <div class="card-bottom">
+        <button type="button" class="add-btn" disabled>Coming soon</button>
+      </div>
+    `;
+    burgerListEl.appendChild(card);
+    return;
+  }
+
+  const priceParts = [`₹${b.single}`];
+  if (hasDouble) priceParts.push(`₹${b.double}`);
+  if (hasPounder) priceParts.push(`₹${b.pounder}`);
+
   card.innerHTML = `
     <div class="card-top">
       <div class="card-name">${b.name}</div>
-      <div class="card-price mono">${hasDouble ? `₹${b.single} / ₹${b.double}` : `₹${b.single}`}</div>
+      <div class="card-price mono">${priceParts.join(' / ')}</div>
     </div>
     <div class="card-desc">${b.desc}</div>
 
-    ${hasDouble ? `
+    ${(hasDouble || hasPounder) ? `
     <div class="field-label">Patty</div>
     <div class="variant-row">
       <div class="variant-opt">
         <input type="radio" name="variant_${b.id}" id="single_${b.id}" value="single" checked>
         <label for="single_${b.id}">Single · ₹${b.single}</label>
       </div>
+      ${hasDouble ? `
       <div class="variant-opt">
         <input type="radio" name="variant_${b.id}" id="double_${b.id}" value="double">
         <label for="double_${b.id}">Double · ₹${b.double}</label>
-      </div>
+      </div>` : ``}
+      ${hasPounder ? `
+      <div class="variant-opt">
+        <input type="radio" name="variant_${b.id}" id="pounder_${b.id}" value="pounder">
+        <label for="pounder_${b.id}">The Pounder · ₹${b.pounder}</label>
+      </div>` : ``}
     </div>` : ``}
 
     <div class="addon-row">
@@ -781,10 +743,11 @@ function renderSimpleItemList(containerId, items) {
   });
 }
 renderSimpleItemList("side-list", SIDES);
+renderSimpleItemList("drink-list", DRINKS);
 
 // ====== BURGER CARD LOGIC ======
 const burgerQty = {}; // local stepper qty per burger, resets after add
-BURGERS.forEach(b => burgerQty[b.id] = 1);
+BURGERS.forEach(b => { if (!b.comingSoon) burgerQty[b.id] = 1; });
 
 document.querySelectorAll('[data-act]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -798,14 +761,19 @@ document.querySelectorAll('[data-act]').forEach(btn => {
 });
 
 BURGERS.forEach(b => {
+  if (b.comingSoon) return;
   const addBtn = document.getElementById(`add_${b.id}`);
   addBtn.addEventListener('click', () => {
     const hasDouble = b.double !== null;
-    const variant = hasDouble ? document.querySelector(`input[name="variant_${b.id}"]:checked`).value : 'single';
+    const hasPounder = b.pounder != null;
+    const variant = (hasDouble || hasPounder)
+      ? document.querySelector(`input[name="variant_${b.id}"]:checked`).value
+      : 'single';
     const addFries = document.getElementById(`addon_${b.id}`).checked;
     const notes = document.getElementById(`notes_${b.id}`).value.trim();
     const qty = burgerQty[b.id];
-    const unitPrice = (variant === 'double' ? b.double : b.single) + (addFries ? ADDON_FRIES_PRICE : 0);
+    const basePrice = variant === 'double' ? b.double : variant === 'pounder' ? b.pounder : b.single;
+    const unitPrice = basePrice + (addFries ? ADDON_FRIES_PRICE : 0);
 
     const key = `burger|${b.id}|${variant}|${addFries}|${notes.toLowerCase()}`;
     const existing = cart.find(c => c.key === key);
@@ -813,7 +781,7 @@ BURGERS.forEach(b => {
       existing.qty += qty;
     } else {
       cart.push({
-        key, type:'burger', name:b.name, variant: hasDouble ? variant : null,
+        key, type:'burger', name:b.name, variant: (hasDouble || hasPounder) ? variant : null,
         addFries, notes, qty, unitPrice
       });
     }
@@ -860,6 +828,31 @@ SIDES.forEach(s => {
   });
 });
 
+// ====== DRINKS LOGIC ======
+DRINKS.forEach(dr => {
+  document.querySelectorAll(`[data-side="${dr.id}"]`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = `drink|${dr.id}`;
+      let existing = cart.find(c => c.key === key);
+      const act = btn.dataset.sideAct;
+
+      if (act === 'inc') {
+        if (existing) { existing.qty += 1; }
+        else { cart.push({ key, type:'drink', name:dr.name, variant:null, addFries:false, notes:'', qty:1, unitPrice:dr.price }); existing = cart.find(c=>c.key===key); }
+      } else {
+        if (existing) {
+          existing.qty -= 1;
+          if (existing.qty <= 0) cart = cart.filter(c => c.key !== key);
+        }
+      }
+
+      const current = cart.find(c => c.key === key);
+      document.getElementById(`sideqty_${dr.id}`).textContent = current ? current.qty : 0;
+      renderCart();
+    });
+  });
+});
+
 // ====== CART RENDER ======
 const cartBar = document.getElementById('cartBar');
 const cartCountEl = document.getElementById('cartCount');
@@ -875,9 +868,9 @@ function cartItemCount() {
 }
 
 function lineDetailText(c) {
-  if (c.type === 'side') return c.qty > 1 ? `Qty ${c.qty}` : '';
+  if (c.type === 'side' || c.type === 'drink') return c.qty > 1 ? `Qty ${c.qty}` : '';
   const parts = [];
-  if (c.variant) parts.push(c.variant === 'double' ? 'Double' : 'Single');
+  if (c.variant) parts.push(c.variant === 'double' ? 'Double' : c.variant === 'pounder' ? 'The Pounder' : 'Single');
   if (c.addFries) parts.push('Add-on fries');
   if (c.notes) parts.push(c.notes);
   if (c.qty > 1) parts.push(`Qty ${c.qty}`);
@@ -984,17 +977,6 @@ document.querySelectorAll('input[name="orderType"]').forEach(r => {
   });
 });
 
-// ====== BOOKING CLOSED POPUP ======
-(function () {
-  const modal = document.getElementById('bookingClosedModal');
-  const closeBtn = document.getElementById('bookingClosedClose');
-  const show = () => modal.classList.add('show');
-  const hide = () => modal.classList.remove('show');
-  show();
-  closeBtn.addEventListener('click', hide);
-  modal.addEventListener('click', (e) => { if (e.target === modal) hide(); });
-})();
-
 // ====== PRE-ORDER DATE & TIME SLOTS ======
 // Available windows: Friday 8 PM - 12 AM, Saturday & Sunday 3 PM - 10 PM
 const DAY_WINDOWS = {
@@ -1032,18 +1014,14 @@ function lastSlotEndDate(baseDate, dow) {
   return end;
 }
 
-// Booking is temporarily closed — pre-orders resume on this date.
-const BOOKING_RESUME_DATE = new Date(2026, 8, 5); // 5th September 2026
-
 function getUpcomingDates(daysAhead = 28, maxCount = 9) {
   const results = [];
   const now = new Date();
-  const startBase = now < BOOKING_RESUME_DATE ? BOOKING_RESUME_DATE : now;
   for (let i = 0; i < daysAhead && results.length < maxCount; i++) {
-    const d = new Date(startBase.getFullYear(), startBase.getMonth(), startBase.getDate() + i);
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
     const dow = d.getDay();
     if (DAY_WINDOWS[dow]) {
-      if (i === 0 && startBase > lastSlotEndDate(d, dow)) continue;
+      if (i === 0 && now > lastSlotEndDate(d, dow)) continue;
       results.push(d);
     }
   }
