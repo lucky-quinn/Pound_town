@@ -198,6 +198,49 @@ body{
   width:18px;height:18px;accent-color:var(--pickle);cursor:pointer;flex-shrink:0;
 }
 .addon-row label{font-size:13px;font-weight:600;cursor:pointer;flex:1;}
+
+/* ---------- Sale popup ---------- */
+.sale-overlay{
+  position:fixed;inset:0;background:rgba(42,15,15,0.66);
+  display:flex;align-items:center;justify-content:center;
+  padding:24px;z-index:999;
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+}
+.sale-overlay.show{opacity:1;pointer-events:auto;}
+.sale-box{
+  background:var(--paper);border:2px solid var(--ember);border-radius:16px;
+  max-width:360px;width:100%;padding:28px 22px 22px;text-align:center;
+  box-shadow:0 14px 40px rgba(42,15,15,0.4);position:relative;
+  transform:translateY(10px);transition:transform .2s ease;
+}
+.sale-overlay.show .sale-box{transform:translateY(0);}
+.sale-x{
+  position:absolute;top:8px;right:12px;background:none;border:none;
+  font-size:26px;line-height:1;color:var(--ink);cursor:pointer;opacity:.7;
+}
+.sale-tag{
+  display:inline-block;background:var(--ember);color:var(--paper);
+  font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;padding:4px 10px;
+  border-radius:3px;transform:rotate(-3deg);margin-bottom:10px;
+}
+.sale-big{
+  font-family:'Anton',sans-serif;font-size:56px;line-height:1;
+  color:var(--ember);letter-spacing:.5px;
+}
+.sale-big small{font-size:26px;}
+.sale-title{
+  font-family:'Anton',sans-serif;font-size:20px;letter-spacing:.4px;
+  text-transform:uppercase;color:var(--ink);margin:6px 0 10px;
+}
+.sale-text{font-size:14px;line-height:1.55;color:var(--ink);opacity:.9;margin-bottom:6px;}
+.sale-text strong{color:var(--ember-dark);}
+.sale-cta{
+  width:100%;margin-top:16px;background:var(--ember);color:var(--paper);
+  border:none;border-radius:10px;padding:13px 16px;font-weight:700;
+  font-size:14px;letter-spacing:.3px;text-transform:uppercase;cursor:pointer;
+}
+.sale-cta:hover{background:var(--ember-dark);}
 .addon-price{font-family:'Space Mono',monospace;font-size:13px;color:var(--pickle);font-weight:700;}
 
 .notes-input{
@@ -513,6 +556,18 @@ body{
 </head>
 <body>
 
+<div class="sale-overlay" id="saleModal" role="dialog" aria-modal="true" aria-labelledby="saleTitle">
+  <div class="sale-box">
+    <button class="sale-x" id="saleX" aria-label="Close">&times;</button>
+    <div class="sale-tag">One-day flash opening</div>
+    <div class="sale-big"><span class="offer-pct">7</span><small>%</small> OFF</div>
+    <div class="sale-title" id="saleTitle">A little comeback!</div>
+    <div class="sale-text">We're back for one day only: <strong>Saturday, 7th November</strong>.</div>
+    <div class="sale-text">Pre-order <strong>before Saturday</strong> and get <strong><span class="offer-pct">7</span>% off</strong> on all orders above ₹500.</div>
+    <button class="sale-cta" id="saleCta">Order now</button>
+  </div>
+</div>
+
 <div class="header">
   <div class="brand-row">
     <div class="brand-name">Pound <span>Town</span> Burgers</div>
@@ -566,7 +621,7 @@ body{
       <span class="mono" id="drawerSubtotal">₹0</span>
     </div>
     <div class="order-value-row" id="discountRow" style="display:none;">
-      <span>Pre-order offer (5% off)</span>
+      <span>Pre-order offer (<span class="offer-pct">7</span>% off)</span>
       <span class="mono" id="drawerDiscount">-₹0</span>
     </div>
     <div class="order-value-row" id="payRow" style="display:none;">
@@ -869,10 +924,22 @@ const cartTotalEl = document.getElementById('cartTotal');
 const orderLinesEl = document.getElementById('orderLines');
 const drawerTotalEl = document.getElementById('drawerTotal');
 
-// ====== PRE-ORDER OFFER: 5% off on orders above ₹500 placed before Sat 7 Nov (IST) ======
+// ====== PRE-ORDER OFFER: 7% off on orders above ₹500 placed before Sat 7 Nov (IST) ======
 const OFFER_CUTOFF = new Date('2026-11-07T00:00:00+05:30');
 const OFFER_MIN = 500;
-const OFFER_PERCENT = 5;
+const OFFER_PERCENT = 7;
+
+// Sale popup: shown on load only while the offer is running
+(function () {
+  const modal = document.getElementById('saleModal');
+  document.querySelectorAll('.offer-pct').forEach(el => el.textContent = OFFER_PERCENT);
+  if (!(new Date() < OFFER_CUTOFF)) return;
+  const hide = () => modal.classList.remove('show');
+  modal.classList.add('show');
+  document.getElementById('saleX').addEventListener('click', hide);
+  document.getElementById('saleCta').addEventListener('click', hide);
+  modal.addEventListener('click', e => { if (e.target === modal) hide(); });
+})();
 
 function cartSubtotal() {
   return cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
@@ -915,7 +982,7 @@ function renderCart() {
   document.getElementById('payRow').style.display = discount > 0 ? '' : 'none';
   const hintEl = document.getElementById('offerHint');
   if (offerActive() && subtotal > 0 && subtotal <= OFFER_MIN) {
-    hintEl.textContent = `Add ₹${OFFER_MIN - subtotal + 1} more to get 5% off your pre-order!`;
+    hintEl.textContent = `Add ₹${OFFER_MIN - subtotal + 1} more to get ${OFFER_PERCENT}% off your pre-order!`;
     hintEl.style.display = '';
   } else {
     hintEl.style.display = 'none';
@@ -1135,7 +1202,7 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   const discount = cartDiscount();
   if (discount > 0) {
     msg += `\nOrder value: ₹${cartSubtotal()}`;
-    msg += `\nPre-order offer (5% off): -₹${discount}`;
+    msg += `\nPre-order offer (${OFFER_PERCENT}% off): -₹${discount}`;
     msg += `\n*Total to pay: ₹${cartTotal()}*`;
   } else {
     msg += `\nOrder value: ₹${cartTotal()}`;
