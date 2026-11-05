@@ -1084,7 +1084,7 @@ document.querySelectorAll('input[name="orderType"]').forEach(r => {
 // ====== PRE-ORDER DATE & TIME SLOTS ======
 // Orders are open ONLY for Saturday, 7 November 2026 (3 PM - 10 PM)
 const DAY_WINDOWS = {
-  6: { slots: generateSlots(15, 0, 21, 30) }    // Saturday
+  6: { slots: generateSlots(11, 30, 21, 30) }    // Saturday
 };
 const OPEN_DATE = new Date(2026, 10, 7); // 7 Nov 2026 (month is 0-indexed)
 
