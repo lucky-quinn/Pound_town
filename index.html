@@ -517,14 +517,14 @@ body{
   <div class="brand-row">
     <div class="brand-name">Pound <span>Town</span> Burgers</div>
   </div>
-  <div class="tagline">Nothing Beats a Good Pound</div>
-  <div class="beef-note">*All our burgers use Halal meat</div>
+  <div class="tagline">The only pounding you'll brag about tomorrow.</div>
+  <div class="beef-note">*All our burgers use beef patties</div>
 </div>
 <div class="checker-strip"></div>
 
 <div class="section">
   <div class="section-title">Smash Burgers</div>
-  <div class="section-sub">Pick single,double patty or The Pounder. Add fries or a note if you like.</div>
+  <div class="section-sub">Pick single or double patty. Add fries or a note if you like.</div>
   <div id="burger-list"></div>
 </div>
 
@@ -563,8 +563,17 @@ body{
     <div id="orderLines"></div>
     <div class="order-value-row">
       <span>Order value</span>
+      <span class="mono" id="drawerSubtotal">₹0</span>
+    </div>
+    <div class="order-value-row" id="discountRow" style="display:none;">
+      <span>Pre-order offer (5% off)</span>
+      <span class="mono" id="drawerDiscount">-₹0</span>
+    </div>
+    <div class="order-value-row" id="payRow" style="display:none;">
+      <span><strong>You pay</strong></span>
       <span class="mono" id="drawerTotal">₹0</span>
     </div>
+    <div id="offerHint" style="display:none;font-size:12.5px;margin:6px 0 0;color:var(--ember-dark);font-weight:600;"></div>
 
     <div class="form-block">
       <div class="form-row">
@@ -860,8 +869,23 @@ const cartTotalEl = document.getElementById('cartTotal');
 const orderLinesEl = document.getElementById('orderLines');
 const drawerTotalEl = document.getElementById('drawerTotal');
 
-function cartTotal() {
+// ====== PRE-ORDER OFFER: 5% off on orders above ₹500 placed before Sat 7 Nov (IST) ======
+const OFFER_CUTOFF = new Date('2026-11-07T00:00:00+05:30');
+const OFFER_MIN = 500;
+const OFFER_PERCENT = 5;
+
+function cartSubtotal() {
   return cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
+}
+function offerActive() {
+  return new Date() < OFFER_CUTOFF;
+}
+function cartDiscount() {
+  const sub = cartSubtotal();
+  return (offerActive() && sub > OFFER_MIN) ? Math.round(sub * OFFER_PERCENT / 100) : 0;
+}
+function cartTotal() {
+  return cartSubtotal() - cartDiscount();
 }
 function cartItemCount() {
   return cart.reduce((sum, c) => sum + c.qty, 0);
@@ -881,8 +905,21 @@ function renderCart() {
   const count = cartItemCount();
   const total = cartTotal();
   cartCountEl.textContent = `${count} item${count === 1 ? '' : 's'}`;
+  const subtotal = cartSubtotal();
+  const discount = cartDiscount();
   cartTotalEl.textContent = `₹${total}`;
+  document.getElementById('drawerSubtotal').textContent = `₹${subtotal}`;
   drawerTotalEl.textContent = `₹${total}`;
+  document.getElementById('drawerDiscount').textContent = `-₹${discount}`;
+  document.getElementById('discountRow').style.display = discount > 0 ? '' : 'none';
+  document.getElementById('payRow').style.display = discount > 0 ? '' : 'none';
+  const hintEl = document.getElementById('offerHint');
+  if (offerActive() && subtotal > 0 && subtotal <= OFFER_MIN) {
+    hintEl.textContent = `Add ₹${OFFER_MIN - subtotal + 1} more to get 5% off your pre-order!`;
+    hintEl.style.display = '';
+  } else {
+    hintEl.style.display = 'none';
+  }
   cartBar.classList.toggle('visible', count > 0);
 
   orderLinesEl.innerHTML = '';
@@ -978,12 +1015,11 @@ document.querySelectorAll('input[name="orderType"]').forEach(r => {
 });
 
 // ====== PRE-ORDER DATE & TIME SLOTS ======
-// Available windows: Friday 8 PM - 12 AM, Saturday & Sunday 3 PM - 10 PM
+// Orders are open ONLY for Saturday, 7 November 2026 (3 PM - 10 PM)
 const DAY_WINDOWS = {
-  5: { slots: generateSlots(20, 0, 23, 30) },   // Friday
-  6: { slots: generateSlots(15, 0, 21, 30) },   // Saturday
-  0: { slots: generateSlots(15, 0, 21, 30) }    // Sunday
+  6: { slots: generateSlots(15, 0, 21, 30) }    // Saturday
 };
+const OPEN_DATE = new Date(2026, 10, 7); // 7 Nov 2026 (month is 0-indexed)
 
 function generateSlots(startH, startM, endH, endM) {
   const out = [];
@@ -1014,18 +1050,11 @@ function lastSlotEndDate(baseDate, dow) {
   return end;
 }
 
-function getUpcomingDates(daysAhead = 28, maxCount = 9) {
-  const results = [];
+function getUpcomingDates() {
   const now = new Date();
-  for (let i = 0; i < daysAhead && results.length < maxCount; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const dow = d.getDay();
-    if (DAY_WINDOWS[dow]) {
-      if (i === 0 && now > lastSlotEndDate(d, dow)) continue;
-      results.push(d);
-    }
-  }
-  return results;
+  const d = OPEN_DATE;
+  if (now > lastSlotEndDate(d, d.getDay())) return []; // 7 Nov has passed
+  return [d];
 }
 
 const custDateEl = document.getElementById('custDate');
@@ -1103,7 +1132,14 @@ document.getElementById('sendBtn').addEventListener('click', () => {
     }
   });
 
-  msg += `\nOrder value: ₹${cartTotal()}`;
+  const discount = cartDiscount();
+  if (discount > 0) {
+    msg += `\nOrder value: ₹${cartSubtotal()}`;
+    msg += `\nPre-order offer (5% off): -₹${discount}`;
+    msg += `\n*Total to pay: ₹${cartTotal()}*`;
+  } else {
+    msg += `\nOrder value: ₹${cartTotal()}`;
+  }
 
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
